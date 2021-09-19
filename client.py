@@ -7,7 +7,7 @@ import os
 import time
 
 HOST = '10.2.4.182'
-PORT = 5000
+PORT = 6969
 
 def pack_message(message: str) -> bytes:
     format: str = '<?50s'

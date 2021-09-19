@@ -6,7 +6,7 @@ import struct as st
 import pandas as pd
 
 HOST = ''
-PORT = 5000
+PORT = 6969
 df = pd.read_csv("/Users/davidmullings/Desktop/College/junior_first_semester/ufa/updated_dues.csv")
 df.drop(columns = df.columns[0], inplace=True)
 df["Name"] = df["Name"].astype('string')
