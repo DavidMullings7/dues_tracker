@@ -1,12 +1,9 @@
-#!/usr/local/bin/python3
-
 import socket
 import struct as st
 import re
 import os
 import time
 
-HOST = '10.2.4.182'
 PORT = 6969
 
 def pack_message(message: str) -> bytes:
@@ -24,6 +21,7 @@ def unpack_message(data: bytes) -> tuple:
     field, found, dues = st.unpack(format, data)
     return field, found, dues
 
+HOST = input('Server IP Address: ')
 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
     s.connect((HOST, PORT))
     prompt: str = 'Please enter UT EID: '
