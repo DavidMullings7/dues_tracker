@@ -6,55 +6,113 @@ import struct as st
 import pandas as pd
 import datetime
 
-HOST = ''
-PORT = 6969
-df = pd.read_csv("/Users/davidmullings/Desktop/College/junior_first_semester/ufa/dues_tracker/Paid Members 2021-2022 (cleaned) - updated_dues (1).csv")
-df["Name"] = df["Name"].astype('string')
-df["EID"] = df["EID"].astype('string')
+# assign hostname and port for server-side listening
+HOST: str = ''
+PORT: int = 33879
 
-meeting_title: str = datetime.datetime.now().strftime('%m_%d_%Y')
-attendance: str = []
-for i in range(0, len(df.index)):
-    attendance.append('Absent')
-df[meeting_title] = attendance
-e: threading.Event = threading.Event()
+# create meeting name using current date
+MEETING_TITLE: str = datetime.datetime.now().strftime('%m_%d_%Y')
 
-def quit_on_stdin(event: threading.Event):
+"""
+function: quit_on_stdin:
+    purpose: listens to stdin for a quit event (either a 'q' or EOF character)
+            and sets the quit_event: threading.Event to indicate to other threads
+            that a graceful exit should take place
+    parameters:
+        quit_event: threading.Event:
+            the global event object that indicates a server exit case
+    return values:
+        none
+"""
+def quit_on_stdin(quit_event: threading.Event):
     user_input: str = '\n'
-    while not event.is_set():
 
+    # indefintely listen on stdin until exit case
+    while True:
         try:
             user_input = input()
             if user_input == 'q':
-                event.set()
-
+                quit_event.set()
                 break
         except EOFError:
-            event.set()
+            quit_event.set()
             break
 
+"""
+function: unpack_message:
+    purpose: unpacks client message according to protocol (see dues_tracker/protocol_definition.txt)
+    parameters:
+        data: bytes:
+            the raw bytes received from dues_tracker client
+    return values:
+        action, message: tuple:
+            action: defines action to be taken by server (see dues_tracker/protocol_definition.txt)
+            message: the string data associated with the action (query / stored EID)
+"""
 def unpack_message(data: bytes) -> tuple:
     format: str = '<?50s'
     action, message = st.unpack(format, data)
     return action, message.decode('utf-8')
 
+"""
+function: pack_message:
+    purpose: packs server message according to protocol (see dues_tracker/protocol_definition.txt)
+    parameters:
+        field: bool: 
+            indicates the field of the previously queried information (EID or Name)
+        found: bool:
+            indicates whether the previously queried information was found in dataframe
+        dues: bool:
+            indicates whether dues has been paid for queried EID / Name
+    return values:
+        p: bytes:
+            raw bytes to be sent to the client
+"""
 def pack_message(field: bool, found: bool, dues: bool) -> bytes:
     format: str = '<???'
-    p = st.pack(format, field, found, dues)
+    p: bytes = st.pack(format, field, found, dues)
     return p
 
-def dataframe_perform_actions(action: chr, message: str, last_eid: str, dataframe_lock: threading.Lock) -> tuple:
+"""
+function: dataframe_perform_actions:
+    purpose: performs lookups on dataframe according to client indications via dues_tracker protocol messages
+    parameters:
+        df: pd.DataFrame:
+            pandas dataframe formatted according to UFA guidelines
+        action: chr:
+            indicates requested lookup (see dues_tracker/protocol_definition.txt)
+        message: str:
+            client query / EID associated with action
+        last_eid: chr:
+            the last queried EID (for populating dataframe['EID'] on successful hit to df['Name'])
+        dataframe_lock: threading.Lock:
+            thread lock used to enforce mutual exclusion between pandas dataframe reads and writes
+            (pandas dataframe is not thread-safe as of version 0.11)
+    return values:
+        field, found, dues: tuple:
+            field: int:
+                value to be used as 'field' parameter of pack_message
+            found: int:
+                value to be used as 'found' parameter of pack_message
+            dues: int:
+                value to be used as 'dues' parameter of pack_message
+"""
+def dataframe_perform_actions(df: pd.DataFrame, action: chr, message: str, last_eid: str, dataframe_lock: threading.Lock) -> tuple:
+    
+    # perform 'EID' lookup
     if action == 0:
         dataframe_lock.acquire()
         eid_entry = df.loc[df["EID"] == message]
         dataframe_lock.release()
         if len(eid_entry) > 0:
             dataframe_lock.acquire()
-            df.loc[df['EID'] == message, [meeting_title]] = 'Present'
+            df.loc[df['EID'] == message, [MEETING_TITLE]] = 'Present'
             dataframe_lock.release()
             return 0, 1, eid_entry.iloc[0]["Dues Paid"] >= 30
         else:
             return 0, 0, 0
+    
+    # perform 'Name' lookup and populate with cached 'EID' if found
     elif action == 1:
         dataframe_lock.acquire()
         name_entry = df.loc[df["Name"] == message]
@@ -66,17 +124,35 @@ def dataframe_perform_actions(action: chr, message: str, last_eid: str, datafram
         else:
             return 1, 0, 0
         dataframe_lock.acquire()
-        df.loc[df['Name'] == message, [meeting_title]] = 'Present'
+        df.loc[df['Name'] == message, [MEETING_TITLE]] = 'Present'
         dataframe_lock.release()
         return 1, 1, name_entry.iloc[0]["Dues Paid"] >= 30
 
-
-
-def interact(conn: socket.socket, addr: socket.AddressInfo, dataframe_lock: threading.Lock):
+"""
+function: interact:
+    purpose: maintains TCP connection and receives/sends messages from/to client
+    parameters:
+        df: pd.DataFrame:
+            pandas dataframe formatted according to UFA guidelines
+        quit_event: threading.Event:
+            the global event object that indicates a server exit case
+        conn: socket.socket:
+            the socket over which the server communicates with the client
+        addr: socket.AddressInfo:
+            a tuple designating the client's IP address and port number
+        dataframe_lock:
+            thread lock used to enforce mutual exclusion between pandas dataframe reads and writes
+            (pandas dataframe is not thread-safe as of version 0.11)
+    return values:
+        none
+"""
+def interact(df: pd.DataFrame, quit_event: threading.Event, conn: socket.socket, addr: socket.AddressInfo, dataframe_lock: threading.Lock):
+    
+    # uses context manager to maintain TCP connection for duration of client's session
     with conn:
-        print('Connected by', addr)
+        print('Connected by:', addr)
         last_eid: str = ''
-        while not e.is_set():
+        while not quit_event.is_set():
             data: bytes = conn.recv(64)
             if not data: break
 
@@ -86,22 +162,84 @@ def interact(conn: socket.socket, addr: socket.AddressInfo, dataframe_lock: thre
             if (action == 0):
                 last_eid = message
 
-            # search / write to Pandas dataframe
-            field, found, dues = dataframe_perform_actions(action, message, last_eid, dataframe_lock)
+            # search / write to pandas dataframe
+            field, found, dues = dataframe_perform_actions(df, action, message, last_eid, dataframe_lock)
             conn.sendall(pack_message(field, found, dues))
-    
-with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-    s.bind((HOST, PORT))
-    t1 = threading.Thread(target=quit_on_stdin, args=(e,))
-    t1.start()
-    s.listen(6)
-    dataframe_lock: threading.Lock = threading.Lock()
-    while not e.is_set():
-        conn, addr = s.accept()
-        temp = threading.Thread(target=interact, args=(conn, addr, dataframe_lock))
-        temp.start()
 
-df.to_csv('/Users/davidmullings/Desktop/College/junior_first_semester/ufa/dues_tracker/updated_dues.csv')
+"""
+function: listen_for_clients
+    purpose: listens for clients on the server's dedicated listening socket
+            creates new session thread for each new connection (up to a maximum of six clients)
+    parameters:
+        df: pd.DataFrame:
+            pandas dataframe formatted according to UFA guidelines
+        quit_event: threading.Event:
+            the global event object that indicates a server exit case
+        dataframe_lock:
+            thread lock used to enforce mutual exclusion between pandas dataframe reads and writes
+            (pandas dataframe is not thread-safe as of version 0.11)
+    return values:
+        none
+"""
+def listen_for_clients(df: pd.DataFrame, quit_event: threading.Event, dataframe_lock: threading.Lock):
+
+    # uses socket context manager to listen on listening port
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind((HOST, PORT))
+        s.listen(6)
+        while True:
+            conn, addr = s.accept()
+            temp = threading.Thread(target=interact, args=(df, quit_event, conn, addr, dataframe_lock))
+            temp.start()
+
+"""
+function: main
+parameters:
+    none
+return values:
+    none
+"""
+def main():
+
+    # read in and format pandas dataframe (formatted according to UFA treasury guidelines)
+    df = pd.read_csv("/Users/davidmullings/Desktop/College/junior_first_semester/ufa/dues_tracker/Paid Members 2021-2022 (cleaned) - updated_dues (1).csv")
+    df["Name"] = df["Name"].astype('string')
+    df["EID"] = df["EID"].astype('string')
+
+    # populate attendance field for specific meeting data
+    attendance: str = []
+    for i in range(0, len(df.index)):
+        attendance.append('Absent')
+    df[MEETING_TITLE] = attendance
+
+    # initialize threading.Event object for server quit
+    quit_event: threading.Event = threading.Event()
+
+    # initialize threading.Lock object for dataframe mutex
+    dataframe_lock: threading.Lock = threading.Lock()
+
+    # create and start thread to listen for server quit event
+    server_quit = threading.Thread(target=quit_on_stdin, args=(quit_event,))
+    server_quit.start()
+
+    # create thread to perform listening on defined socket
+    # daemon thread is used to ensure proper exit upon quit_event.isSet()
+    listen: threading.Thread = threading.Thread(target=listen_for_clients, args=(df, quit_event, dataframe_lock), daemon=True)
+    listen.start()
+
+    # wait until server quit event
+    server_quit.join()
+
+    # wait for remaining sessions to finish current transaction
+    for session in threading.enumerate():
+        if session != threading.currentThread() and session != listen:
+            session.join()
+    
+    # write dataframe back to directory
+    df.to_csv('/Users/davidmullings/Desktop/College/junior_first_semester/ufa/dues_tracker/updated_dues.csv')
+
+if __name__ == "__main__":
+    main()
 
 
         
