@@ -1,0 +1,39 @@
+Dues Tracker Message Formats and Protocol Definitions:
+
+Diagrams:
+    <-> = 1 byte
+    <--> = 2 bytes
+    <---> = 3 bytes
+
+Byte ordering: little endian
+
+Client Messages: 
+    Messages sent from the client will adhere to the following format:
+
+    <-><-------------------------------------------------->
+     a                          s
+
+    a: the action requested of the server by the client
+        a = 0: perform query of 's' EID
+        a = 1: perform query of 's' Name
+    
+    s: the query string provided to the server (always 50 bytes in length)
+
+
+Server Messages:
+    Messages send from the server will adhere to the following format:
+
+    <-><-><->
+     f  e  d 
+    
+    f: indicates which field was queried
+        f = 0: EID query was performed
+        f = 1: Name query was performed
+
+    e: indicates whether requested data was found in the database
+        e = 0: query was not found in database
+        e = 1: query was found in database
+
+    d: indicates whether queried individual is current with sues
+        d = 0: queried individual was found in database and is current with dues
+        d = 1: queried individual was found in database and is not current with dues

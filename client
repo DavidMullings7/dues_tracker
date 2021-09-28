@@ -1,0 +1,198 @@
+#!/usr/bin/env python3
+
+import tkinter as tk
+from datetime import date
+from tkinter.constants import LEFT
+from PIL import ImageTk, Image
+import socket
+import os
+import struct as st
+import re
+
+# global varaibles
+PORT: int = 33879
+s: socket = None
+row_two_text_entry_text: tk.Label = None
+row_two_text_entry_entry: tk.Entry = None
+row_two_display_text: tk.Label = None
+
+"""
+function: pack_message:
+    purpose: packs client message for delivery to server according to protocol (see dues_tracker/protocol_definition.txt)
+    parameters:
+        message: str:
+            the query to be delivered to the server
+    return values:
+        p: bytes:
+            the raw bytes to be delivered to the server
+"""
+def pack_message(message: str) -> bytes:
+    format: str = '<?50s'
+    
+    # if query is name, set action to 1
+    # else, set action to 0
+    action: bool
+    if re.search('[0-9]', message) != None:
+        action = False
+    else:
+        action = True
+    p: bytes = st.pack(format, action, message.encode())
+    return p
+
+"""
+function: unpack_message:
+    purpose: unpacks server message according to protocol (see dues_tracker/protocol_definition.txt)
+    parameters:
+        data: bytes:
+            the raw bytes received from dues_tracker server
+    return values:
+        field, found, dues: tuple:
+            field: bool: 
+                indicates the field of the previously queried information (EID or Name)
+            found: bool:
+                indicates whether the previously queried information was found in dataframe
+            dues: bool:
+                indicates whether dues has been paid for queried EID / Name
+"""
+def unpack_message(data: bytes) -> tuple:
+    format: str = '<???'
+    field, found, dues = st.unpack(format, data)
+    return field, found, dues
+
+"""
+function: revert_to_welcome
+    purpose: changes gui user message to general welcome statement to avoid privacy leaks
+    parameters:
+        none
+    return values:
+        none
+"""
+def revert_to_welcome():
+
+    # retrieve global variables
+    global row_two_display_text
+
+    # change display message to general greeting to prevent privacy leaks
+    row_two_display_text['text'] = 'Welcome!\nWe\'re excited to have you!'
+
+"""
+function: process_user_input
+    purpose: processes user input upon tk event and queries server for inputted information
+    parameters:
+        keypress: tk.Event:
+            mandatory Tkinter parameter for bound event functions
+    return values:
+        none
+"""
+def process_user_input(keypress: tk.Event):
+
+    # retrieve global variables
+    global s
+    global row_two_text_entry_text
+    global row_two_text_entry_entry
+    global row_two_display_text
+
+    # get text from entry widget and delete text
+    message: str = row_two_text_entry_entry.get()
+    s.sendall(pack_message(message))
+    data = s.recv(1024)
+
+    # unpack server message and process future behavior
+    field, found, dues = unpack_message(data)
+    if not dues:
+        if not field:
+            if found:
+                row_two_display_text['text'] = 'Please pay full dues.\nThank you!'
+                row_two_text_entry_text['text'] = 'Please enter your UT EID: '
+            else:
+                row_two_text_entry_text['text'] = 'Please enter your name: '
+        else:
+            if found:
+                row_two_display_text['text'] = 'Please pay full dues.\nThank you!'
+                row_two_text_entry_text['text'] = 'Please enter your UT EID: '
+            else:
+                row_two_display_text['text'] = 'Not present in system.\nCheck in with the treasurer.'
+                row_two_text_entry_text['text'] = 'Please enter your UT EID: '
+    else:
+        row_two_display_text['text'] = 'You\'re checked in!\nWelcome to this week\'s UFA meeting!'
+        row_two_text_entry_text['text'] = 'Please enter your UT EID: '
+
+    row_two_text_entry_entry.delete(first=0, last='end')
+    row_two_display_text.after(4000, revert_to_welcome)
+    
+"""
+function: main
+parameters: 
+    none
+return values:
+    none
+"""
+def main():
+
+    # connect client to host
+    # clear terminal for clean look
+    os.system('cls||clear')
+
+    # prompt user to enter desired IP address
+    HOST = input('Server IP Address: ')
+
+    # retrieve global variables
+    global s
+    global PORT
+    global row_two_text_entry_entry
+    global row_two_text_entry_text
+    global row_two_display_text
+
+    # create basic tkinter window
+    window: tk.Tk = tk.Tk()
+    window.title('UFA Check-In')
+    window.tk.call('wm', 'iconphoto', window._w, tk.PhotoImage(file='ufa_bull.png'))
+    window.geometry("300x300")
+    window.configure(background='grey')
+
+
+    # create row one
+    row_one = tk.Frame(master=window, bg='#3A7333')
+    row_one.pack(fill=tk.BOTH, expand=True)
+    ufa_logo = ImageTk.PhotoImage(Image.open('ufa_bull_full.png').resize(size=(240, 90)))
+    row_one_left_icon = tk.Label(master=row_one, image=ufa_logo)
+    row_one_left_icon.pack(fill=tk.BOTH, side=tk.LEFT, expand=False)
+    row_one_meeting_title = tk.Label(master=row_one, text='General Meeting ' + date.today().strftime("%B %d, %Y"), font=('Helvetica', 40), bg='#3A7333', padx=20)
+    row_one_meeting_title.pack(fill=tk.BOTH, side=tk.LEFT, expand=False)
+
+    # separator between rows
+    row_separator = tk.Label(master=window, bg='#222222', relief=tk.RIDGE)
+    row_separator.pack(fill=tk.BOTH, expand=True)
+
+    # create row two
+    row_two = tk.Frame(master=window, bg='red')
+    row_two.pack(fill=tk.BOTH, expand=True)
+
+    # create text entry
+    row_two_text_entry = tk.Frame(master=row_two, bg='lightgrey')
+    row_two_text_entry.pack(fill=tk.BOTH, side=LEFT, expand=True)
+    row_two_text_entry_text = tk.Label(master=row_two_text_entry, text='Please enter your UT EID:', font=('Helvetica', 30),bg='lightgrey')
+    row_two_text_entry_text.pack(fill=tk.BOTH, side=tk.TOP, expand=True, pady=10)
+    row_two_text_entry_entry = tk.Entry(master=row_two_text_entry, font=('Helvetica', 30), bd=3)
+    row_two_text_entry_entry.pack(fill=tk.BOTH, side=tk.BOTTOM, expand=True, padx=20, pady=10)
+
+    # create display window
+    row_two_display = tk.Frame(master=row_two, bg='lightgrey')
+    row_two_display.pack(fill=tk.BOTH, side=tk.RIGHT, expand=True)
+    row_two_display_text = tk.Label(master=row_two_display, text='Welcome!\nWe\'re excited to have you!', font=('Helvetica', 40), bg='#3A7333')
+    row_two_display_text.pack(fill=tk.BOTH, expand=True) 
+
+    # initialize socket to use
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+    # connect to server listening port
+    s.connect((HOST, PORT))
+
+    # create binding for user newline
+    row_two_text_entry_entry.bind('<Return>', process_user_input)
+
+    # begin main event loop for window
+    window.mainloop()
+
+if __name__ == '__main__':
+    main()
