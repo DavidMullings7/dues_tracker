@@ -34,6 +34,6 @@ Server Messages:
         e = 0: query was not found in database
         e = 1: query was found in database
 
-    d: indicates whether queried individual is current with sues
+    d: indicates whether queried individual is current with dues
         d = 0: queried individual was found in database and is current with dues
         d = 1: queried individual was found in database and is not current with dues

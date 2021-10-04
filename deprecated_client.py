@@ -4,7 +4,7 @@ import re
 import os
 import time
 
-PORT = 33879
+PORT = 33878
 
 """
 function: pack_message:
@@ -103,27 +103,27 @@ def main():
 
                 # unpack server message and process future behavior
                 field, found, dues = unpack_message(data)
-                if not dues:
-                    if not field:
-                        if found:
+                if not dues: # dues not paid
+                    if not field: # field is EID
+                        if found: # EID found
                             print('\n' * 2)
                             display_text('!', 'Please pay full dues.')
                             prompt = 'Please enter your UT EID: '
                             time.sleep(3)
-                        else:
+                        else: # EID not found
                             prompt = 'Please enter \'FirstName\' \'LastName\': '
-                    else:
-                        if found:
+                    else: # field is Name
+                        if found: # Name found
                             print('\n' * 2)
                             display_text('!', 'Please pay full dues.')
                             prompt = 'Please enter your UT EID: '
                             time.sleep(3)
-                        else:
+                        else: # Name not found
                             print('\n' * 2)
                             display_text('!', 'Not present in system.')
                             prompt = 'Please enter your UT EID: '
                             time.sleep(3)
-                else:
+                else: # dues paid
                     print('\n' * 2)
                     display_text('!', 'Welcome to this week\'s UFA meeting!')
                     prompt = 'Please enter your UT EID: '

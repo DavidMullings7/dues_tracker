@@ -10,7 +10,7 @@ import struct as st
 import re
 
 # global varaibles
-PORT: int = 33879
+PORT: int = 33878
 s: socket = None
 row_two_text_entry_text: tk.Label = None
 row_two_text_entry_entry: tk.Entry = None
@@ -73,7 +73,7 @@ def revert_to_welcome():
     global row_two_display_text
 
     # change display message to general greeting to prevent privacy leaks
-    row_two_display_text['text'] = 'Welcome!\nWe\'re excited to have you!'
+    row_two_display_text['text'] = 'Welcome!\nPlease check in\nso we know you\'re here!'
 
 """
 function: process_user_input
@@ -165,7 +165,7 @@ def main():
     row_separator.pack(fill=tk.BOTH, expand=True)
 
     # create row two
-    row_two = tk.Frame(master=window, bg='red')
+    row_two = tk.Frame(master=window, bg='#3A7333')
     row_two.pack(fill=tk.BOTH, expand=True)
 
     # create text entry
@@ -179,7 +179,7 @@ def main():
     # create display window
     row_two_display = tk.Frame(master=row_two, bg='lightgrey')
     row_two_display.pack(fill=tk.BOTH, side=tk.RIGHT, expand=True)
-    row_two_display_text = tk.Label(master=row_two_display, text='Welcome!\nWe\'re excited to have you!', font=('Helvetica', 40), bg='#3A7333')
+    row_two_display_text = tk.Label(master=row_two_display, text='Welcome!\nPlease check in\nso we know you\'re here!', font=('Helvetica', 40), bg='#3A7333')
     row_two_display_text.pack(fill=tk.BOTH, expand=True) 
 
     # initialize socket to use

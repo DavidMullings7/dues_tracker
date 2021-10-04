@@ -5,6 +5,7 @@ import threading
 import struct as st
 import pandas as pd
 import datetime
+import os
 
 # assign hostname and port for server-side listening
 HOST: str = ''
@@ -104,12 +105,12 @@ def dataframe_perform_actions(df: pd.DataFrame, action: chr, message: str, last_
         dataframe_lock.acquire()
         eid_entry = df.loc[df["EID"] == message]
         dataframe_lock.release()
-        if len(eid_entry) > 0:
+        if len(eid_entry) > 0: # EID found
             dataframe_lock.acquire()
             df.loc[df['EID'] == message, [MEETING_TITLE]] = 'Present'
             dataframe_lock.release()
             return 0, 1, eid_entry.iloc[0]["Dues Paid"] >= 30
-        else:
+        else: # EID not found
             return 0, 0, 0
     
     # perform 'Name' lookup and populate with cached 'EID' if found
@@ -117,11 +118,11 @@ def dataframe_perform_actions(df: pd.DataFrame, action: chr, message: str, last_
         dataframe_lock.acquire()
         name_entry = df.loc[df["Name"] == message]
         dataframe_lock.release()
-        if len(name_entry) > 0:
+        if len(name_entry) > 0: # Name Found
             dataframe_lock.acquire()
             df.loc[df["Name"] == message + '', ['EID']] = str(last_eid)
             dataframe_lock.release()
-        else:
+        else: # Name not found
             return 1, 0, 0
         dataframe_lock.acquire()
         df.loc[df['Name'] == message, [MEETING_TITLE]] = 'Present'
@@ -150,7 +151,7 @@ def interact(df: pd.DataFrame, quit_event: threading.Event, conn: socket.socket,
     
     # uses context manager to maintain TCP connection for duration of client's session
     with conn:
-        print('Connected by:', addr)
+        print('          Connected by:', addr)
         last_eid: str = ''
         while not quit_event.is_set():
             data: bytes = conn.recv(64)
@@ -186,6 +187,7 @@ def listen_for_clients(df: pd.DataFrame, quit_event: threading.Event, dataframe_
     # uses socket context manager to listen on listening port
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.bind((HOST, PORT))
+        print('     Listening for clients.')
         s.listen(6)
         while True:
             conn, addr = s.accept()
@@ -201,8 +203,12 @@ return values:
 """
 def main():
 
+    # print server startup information
+    os.system('cls||clear')
+    print('Server startup.')
+
     # read in and format pandas dataframe (formatted according to UFA treasury guidelines)
-    df = pd.read_csv("/Users/davidmullings/Desktop/College/junior_first_semester/ufa/dues_tracker/Paid Members 2021-2022 (cleaned) - updated_dues (1).csv")
+    df = pd.read_csv("/Users/davidmullings/Desktop/College/junior_first_semester/ufa/dues_tracker/Paid Members 2021-2022 (cleaned) - updated_dues (2).csv")
     df["Name"] = df["Name"].astype('string')
     df["EID"] = df["EID"].astype('string')
 
@@ -231,13 +237,17 @@ def main():
     server_quit.join()
 
     # wait for remaining sessions to finish current transaction
+    print('     Exiting sessions.')
     for session in threading.enumerate():
         if session != threading.currentThread() and session != listen:
             session.join()
     
     # write dataframe back to directory
+    print('     Writing database information to file.')
     df.to_csv('/Users/davidmullings/Desktop/College/junior_first_semester/ufa/dues_tracker/updated_dues.csv')
 
+    # server has completed
+    print('Server exit.')
 if __name__ == "__main__":
     main()
 
