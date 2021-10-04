@@ -208,7 +208,7 @@ def main():
     print('Server startup.')
 
     # read in and format pandas dataframe (formatted according to UFA treasury guidelines)
-    df = pd.read_csv("/Users/davidmullings/Desktop/College/junior_first_semester/ufa/dues_tracker/Paid Members 2021-2022 (cleaned) - updated_dues (2).csv")
+    df = pd.read_csv("Paid Members 2021-2022 (cleaned) - updated_dues (2).csv")
     df["Name"] = df["Name"].astype('string')
     df["EID"] = df["EID"].astype('string')
 
@@ -244,7 +244,7 @@ def main():
     
     # write dataframe back to directory
     print('     Writing database information to file.')
-    df.to_csv('/Users/davidmullings/Desktop/College/junior_first_semester/ufa/dues_tracker/updated_dues.csv')
+    df.to_csv('updated_dues.csv')
 
     # server has completed
     print('Server exit.')

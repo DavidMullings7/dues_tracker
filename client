@@ -10,7 +10,7 @@ import struct as st
 import re
 
 # global varaibles
-PORT: int = 33878
+PORT: int = 33879
 s: socket = None
 row_two_text_entry_text: tk.Label = None
 row_two_text_entry_entry: tk.Entry = None
@@ -134,7 +134,8 @@ def main():
     os.system('cls||clear')
 
     # prompt user to enter desired IP address
-    HOST = input('Server IP Address: ')
+    # HOST = input('Server IP Address: ')
+    HOST = 'aquarius.cs.utexas.edu'
 
     # retrieve global variables
     global s
