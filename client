@@ -137,6 +137,9 @@ def main():
     # HOST = input('Server IP Address: ')
     HOST = 'aquarius.cs.utexas.edu'
 
+    # prompt user for meeting title
+    MEETING_TILE = input('Please enter meeting title.\nEx. Investment Team Meeting: ') + ' '
+
     # retrieve global variables
     global s
     global PORT
@@ -158,7 +161,7 @@ def main():
     ufa_logo = ImageTk.PhotoImage(Image.open('ufa_bull_full.png').resize(size=(240, 90)))
     row_one_left_icon = tk.Label(master=row_one, image=ufa_logo)
     row_one_left_icon.pack(fill=tk.BOTH, side=tk.LEFT, expand=False)
-    row_one_meeting_title = tk.Label(master=row_one, text='General Meeting ' + date.today().strftime("%B %d, %Y"), font=('Helvetica', 40), bg='#3A7333', padx=20)
+    row_one_meeting_title = tk.Label(master=row_one, text=MEETING_TILE + date.today().strftime("%B %d, %Y"), font=('Helvetica', 40), bg='#3A7333', padx=20)
     row_one_meeting_title.pack(fill=tk.BOTH, side=tk.LEFT, expand=False)
 
     # separator between rows
