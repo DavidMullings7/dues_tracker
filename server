@@ -208,7 +208,7 @@ def main():
     print('Server startup.')
 
     # read in and format pandas dataframe (formatted according to UFA treasury guidelines)
-    df = pd.read_csv("Paid Members 2021-2022 (cleaned) - updated_dues (2).csv")
+    df = pd.read_csv("updated_dues.csv")
     df["Name"] = df["Name"].astype('string')
     df["EID"] = df["EID"].astype('string')
 
