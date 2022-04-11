@@ -116,7 +116,7 @@ def dataframe_perform_actions(df: pd.DataFrame, action: chr, message: str, last_
     # perform 'Name' lookup and populate with cached 'EID' if found
     elif action == 1:
         dataframe_lock.acquire()
-        name_entry = df.loc[df["Name"] == message]
+        name_entry = df.loc[df["Name"]  == message.lower()]
         dataframe_lock.release()
         if len(name_entry) > 0: # Name Found
             dataframe_lock.acquire()
@@ -244,7 +244,7 @@ def main():
     
     # write dataframe back to directory
     print('     Writing database information to file.')
-    df.to_csv('updated_dues_2.csv')
+    df.to_csv('updated_dues_2.csv', index=False)
 
     # server has completed
     print('Server exit.')
